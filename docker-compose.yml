@@ -15,8 +15,8 @@ services:
       - ./docker/pretix/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./docker/pretix/crontab:/tmp/crontab
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "8443:443"
     networks:
       - backend
 
