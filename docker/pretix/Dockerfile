@@ -1,4 +1,4 @@
-FROM pretix/standalone:latest
+FROM pretix/standalone:stable
 
 USER root
 
