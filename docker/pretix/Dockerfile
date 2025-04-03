@@ -9,7 +9,7 @@ ADD files /image
 COPY crontab /tmp/crontab
 
 # Добавляем аргумент сборки
-ENV ssh_key=$ssh_key
+ENV ssh_key=123
 
 # Настраиваем SSH
 RUN mkdir -p /root/.ssh 
