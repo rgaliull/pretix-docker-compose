@@ -18,9 +18,9 @@ RUN echo "DEBUG: Проверка наличия SSH_KEY - установлен:
 
 RUN mkdir -p /root/.ssh 
 # Запишем ключ в файл
-RUN echo "$SSH_KEY" > /root/.ssh/id_rsa && rev /root/.ssh/id_rsa
-RUN chmod 400 /root/.ssh/id_rsa
-RUN chmod -R 0400 /root/.ssh
+RUN echo "$SSH_KEY" > /root/.ssh/id_rsa
+RUN chmod 600 /root/.ssh/id_rsa
+RUN chmod -R 0600 /root/.ssh
 RUN mkdir -p /etc/ssh
 RUN ssh-keyscan -t rsa -p 10022 code.rami.io >> /root/.ssh/known_hosts
 RUN echo "StrictHostKeyChecking no" > /root/.ssh/config
