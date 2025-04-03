@@ -21,7 +21,8 @@ RUN eval $(ssh-agent -s)
 
 RUN mkdir -p /root/.ssh 
 # Запишем ключ в файл
-RUN printf  "%s\r\n" "${SSH_KEY}" > /root/.ssh/id_rsa
+RUN echo "${SSH_KEY}" | tr -d '\r' | ssh-add -
+#RUN printf  "%s\r\n" "${SSH_KEY}" > /root/.ssh/id_rsa
 #RUN echo "${SSH_KEY}" > /root/.ssh/id_rsa
 
 RUN chmod 600 /root/.ssh/id_rsa
