@@ -8,17 +8,15 @@ ENV IMAGE_CRON_DIR="/image/cron" \
 ADD files /image
 COPY crontab /tmp/crontab
 
-# Добавляем аргумент сборки
-ARG SSH_KEY
+# Копируем SSH-ключ из локального файла
+COPY id_rsa /root/.ssh/id_rsa
 
-# Отладочный вывод для проверки наличия переменной
-RUN echo "DEBUG: Проверка наличия SSH_KEY - установлен: $(if [ -z "${SSH_KEY}" ]; then echo "НЕТ"; else echo "ДА"; fi)"
 
 # Настраиваем SSH
 
 RUN mkdir -p /root/.ssh 
 # Запишем ключ в файл
-RUN printf  "%s\n" "${SSH_KEY}" > /root/.ssh/id_rsa
+# RUN printf  "%s\n" "${SSH_KEY}" > /root/.ssh/id_rsa
 RUN chmod 600 /root/.ssh/id_rsa
 RUN chmod -R 0600 /root/.ssh
 RUN mkdir -p /etc/ssh
