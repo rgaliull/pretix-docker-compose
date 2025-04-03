@@ -18,7 +18,7 @@ ARG SSH_KEY
 RUN mkdir -p /root/.ssh 
 # Запишем ключ в файл
 #RUN printf  "%s\n" "${SSH_KEY}" > /root/.ssh/id_rsa
-RUN sh -c 'echo "${SSH_KEY}" > /root/.ssh/id_rsa' && \
+RUN echo "${SSH_KEY}" > /root/.ssh/id_rsa
 
 RUN chmod 600 /root/.ssh/id_rsa
 RUN chmod -R 0600 /root/.ssh
