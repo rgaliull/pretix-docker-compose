@@ -9,7 +9,7 @@ ADD files /image
 COPY crontab /tmp/crontab
 
 # Добавляем аргумент сборки
-ARG SSH_KEY
+ENV SSH_KEY
 
 # проверка
 RUN echo "DEBUG: Проверка SSH_KEY - первые 5 символов: $(echo ${SSH_KEY} | cut -c1-5)..."
