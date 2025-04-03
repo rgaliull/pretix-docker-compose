@@ -14,7 +14,7 @@ ARG SSH_KEY
 # Настраиваем SSH
 RUN mkdir -p /root/.ssh 
 # Запишем ключ в файл
-RUN echo ${SSH_KEY} > /root/.ssh/id_rsa
+RUN echo '${SSH_KEY}' > /root/.ssh/id_rsa
 RUN cat /root/.ssh/id_rsa
 RUN chmod 600 /root/.ssh/id_rsa
 RUN chmod -R 0600 /root/.ssh
