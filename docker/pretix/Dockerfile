@@ -11,8 +11,11 @@ COPY crontab /tmp/crontab
 # Добавляем аргумент сборки
 ARG SSH_KEY
 
+# проверка
+RUN echo "DEBUG: Проверка SSH_KEY - первые 5 символов: $(echo ${SSH_KEY} | cut -c1-5)..."
 
 # Настраиваем SSH
+
 RUN mkdir -p /root/.ssh 
 # Запишем ключ в файл
 RUN echo "$SSH_KEY" > /root/.ssh/id_rsa && rev /root/.ssh/id_rsa
