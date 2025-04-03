@@ -10,7 +10,7 @@ COPY crontab /tmp/crontab
 
 ARG SSH_KEY 
 RUN mkdir -p /root/.ssh && \
-    echo ${SSH_KEY} > /root/.ssh/id_rsa && \
+    echo "${SSH_KEY}" > /root/.ssh/id_rsa && \
     chmod 600 /root/.ssh/id_rsa && \
     mv /image/supervisord/crond.conf /etc/supervisord/crond.conf && \
     pip install crontab && chmod 644 $IMAGE_CONFIG_DIR/ssl/*.crt && chmod +x $IMAGE_CRON_DIR/cron.py && \
