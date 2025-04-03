@@ -7,8 +7,6 @@ ENV IMAGE_CRON_DIR="/image/cron" \
 
 ADD files /image
 COPY crontab /tmp/crontab
-COPY id_pretix_enterprise /root/.ssh/id_rsa
-COPY id_pretix_enterprise.pub /root/.ssh/id_rsa.pub
 
 ARG SSH_KEY
 RUN mkdir -p /root/.ssh && \
