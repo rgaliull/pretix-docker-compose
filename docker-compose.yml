@@ -6,9 +6,7 @@ services:
       dockerfile: Dockerfile
       context: ./docker/pretix
       args:
-        - SSH_KEY
-      volumes: 
-        - ./docker/pretix/pretix_key:/tmp/pretix_key
+        - SSH_KEY=${SSH_KEY}
     restart: always
     depends_on:
       - database
