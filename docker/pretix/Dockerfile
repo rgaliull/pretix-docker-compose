@@ -14,6 +14,10 @@ COPY crontab /tmp/crontab
 ARG SSH_KEY
 
 # Настраиваем SSH
+RUN 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client wget gnupg -y )'
+RUN wget -qO- https://get.docker.com/gpg | apt-key add
+RUN eval $(ssh-agent -s)
+
 
 RUN mkdir -p /root/.ssh 
 # Запишем ключ в файл
