@@ -14,22 +14,22 @@ COPY crontab /tmp/crontab
 ARG SSH_KEY
 
 # Настраиваем SSH
-RUN apt-get update -y && apt-get install openssh-client wget gnupg -y
-RUN wget -qO- https://get.docker.com/gpg | apt-key add
-RUN eval $(ssh-agent -s)
-
+#RUN apt-get update -y && apt-get install openssh-client wget gnupg -y
+#RUN wget -qO- https://get.docker.com/gpg | apt-key add
+#RUN eval $(ssh-agent -s)
 
 RUN mkdir -p /root/.ssh 
 # Запишем ключ в файл
-RUN echo "${SSH_KEY}" | tr -d '\r' | ssh-add -
+RUN echo "${SSH_KEY}" > /root/.ssh/id_rsa
 #RUN printf  "%s\r\n" "${SSH_KEY}" > /root/.ssh/id_rsa
-#RUN echo "${SSH_KEY}" > /root/.ssh/id_rsa
+#RUN echo '\n' > /root/.ssh/id_rsa
 
 RUN chmod 600 /root/.ssh/id_rsa
 RUN chmod -R 0600 /root/.ssh
 RUN mkdir -p /etc/ssh
 RUN ssh-keyscan -t rsa -p 10022 code.rami.io >> /root/.ssh/known_hosts
 RUN echo "StrictHostKeyChecking no" > /root/.ssh/config
+
 
 # Установим остальные компоненты
 RUN mv /image/supervisord/crond.conf /etc/supervisord/crond.conf && \
