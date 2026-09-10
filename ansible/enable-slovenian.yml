@@ -4,7 +4,7 @@
   become: true
   gather_facts: false
   vars:
-    pretix_config: /opt/pretix/pretix.cfg
+    pretix_config: "{{ deploy_dir }}/pretix.cfg"
 
   tasks:
     - name: Set English as the default interface language

@@ -4,6 +4,10 @@ services:
     build:
       dockerfile: Dockerfile
       context: ./docker/pretix
+      args:
+        PRIVATE_PLUGIN_REQUIREMENT: ${PRIVATE_PLUGIN_REQUIREMENT:?PRIVATE_PLUGIN_REQUIREMENT is required}
+        PRIVATE_PLUGIN_GIT_HOST: ${PRIVATE_PLUGIN_GIT_HOST:?PRIVATE_PLUGIN_GIT_HOST is required}
+        PRIVATE_PLUGIN_GIT_PORT: ${PRIVATE_PLUGIN_GIT_PORT:-22}
     restart: always
     depends_on:
       - database

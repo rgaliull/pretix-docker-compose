@@ -4,7 +4,6 @@
   become: true
   gather_facts: true
   vars:
-    deploy_dir: /opt/pretix
     backup_dir: /var/backups/pretix
     compose_project: pretix
     pretix_runtime_version: 5.2.16
@@ -55,6 +54,11 @@
           - postgres_volume | length > 0
           - postgres_user | length > 0
           - postgres_password | length > 0
+          - private_plugin_requirement | default('') | length > 0
+          - private_plugin_git_host | default('') | length > 0
+          - private_plugin_key | default('') | length > 0
+          - deploy_dir | default('') | length > 0
+          - pretix_public_host | default('') | length > 0
         fail_msg: "Could not discover the active volumes or database credentials. No deployment was attempted."
       tags: [always]
 
@@ -140,6 +144,9 @@
           POSTGRES_PASSWORD={{ postgres_password }}
           POSTGRES_DATA_VOLUME={{ postgres_volume }}
           PRETIX_DATA_VOLUME={{ pretix_volume }}
+          PRIVATE_PLUGIN_REQUIREMENT="{{ private_plugin_requirement }}"
+          PRIVATE_PLUGIN_GIT_HOST={{ private_plugin_git_host }}
+          PRIVATE_PLUGIN_GIT_PORT={{ private_plugin_git_port | default(22) }}
       no_log: true
 
     - name: Validate the rendered Compose model
@@ -150,7 +157,7 @@
 
     - name: Build the updated Pretix image with the private plugin
       ansible.builtin.command:
-        cmd: docker compose -p {{ compose_project }} build --pull --ssh pretix_seating={{ deploy_dir }}/id_rsa app
+        cmd: docker compose -p {{ compose_project }} build --pull --ssh private_plugin={{ private_plugin_key }} app
         chdir: "{{ deploy_dir }}"
       environment:
         DOCKER_BUILDKIT: '1'
@@ -182,6 +189,6 @@
       ansible.builtin.command:
         cmd: >-
           curl --fail --silent --show-error --insecure --retry 12 --retry-delay 5
-          -H 'Host: tickets.upsalacircus.de'
+          -H 'Host: {{ pretix_public_host }}'
           https://127.0.0.1/ -o /dev/null
       changed_when: false

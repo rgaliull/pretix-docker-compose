@@ -1,0 +1,14 @@
+[pretix]
+pretix-prod ansible_host=pretix.example.invalid ansible_user=deployuser
+
+[pretix:vars]
+ansible_become=true
+ansible_become_method=sudo
+
+# Keep the real values in the ignored production.ini or an Ansible vault.
+deploy_dir=/opt/pretix
+private_plugin_key=/opt/pretix/private_plugin_key
+private_plugin_requirement=git+ssh://git@private-git.example.invalid:22/vendor/private-plugin.git@stable#egg=private-plugin
+private_plugin_git_host=private-git.example.invalid
+private_plugin_git_port=22
+pretix_public_host=pretix.example.invalid

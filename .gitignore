@@ -5,6 +5,8 @@
 *.env
 ansible/vars/production.yml
 ansible/vars/production.vault.yml
+ansible/inventory/production.ini
+ansible/vars/private.yml
 docker/pretix/pretix.cfg
 docker/pretix/pretix_key
 docker/pretix/files/config/ssl/domain.crt

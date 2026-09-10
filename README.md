@@ -1,10 +1,10 @@
-# Pretix for Upsala Circus
+# Pretix Docker deployment
 
-This repository contains the public Docker Compose and Ansible deployment for
-the production Pretix instance at <https://tickets.upsalacircus.de/>.
+This repository contains a public Docker Compose and Ansible deployment for
+an operator-managed Pretix instance.
 
 The application image is based on the official Pretix standalone image and
-adds the private `pretix-seating` plugin. Production configuration, database
+adds a private seating plugin. Production configuration, database
 credentials, TLS material, and the SSH key for the private plugin are kept on
 the server or in a local Ansible vault. They are intentionally not stored in
 this public repository.
@@ -38,21 +38,22 @@ English. Refresh the PO files from Weblate when updating the translation.
 
 ## Production deployment with Ansible
 
-The target is defined in `ansible/inventory/production.ini` and uses the SSH
-alias `tickets` from the operator's SSH config. The playbook runs with sudo on
-the host and deploys to `/opt/pretix`.
+The target is defined in the ignored local file
+`ansible/inventory/production.ini`, based on
+`ansible/inventory/production.ini.example`. The playbook runs with sudo on
+the host and deploys to the path configured in the local inventory.
 
 Use the persistent local Python 3.13/Ansible environment for deployments:
 
 ```bash
-source /Users/ramil/.venvs/ansible313/bin/activate
+source .venv/bin/activate
 ansible --version  # Python 3.13, ansible-core 2.21+
 ```
 
-Before the first run, verify that `/opt/pretix/id_rsa` on the server is the
-read-only deploy key for `code.rami.io`. It is consumed by Docker BuildKit via
-an SSH mount and is never copied into an image layer. Do not add it, `.env`,
-`pretix.cfg`, or TLS files to Git.
+Before the first run, create the ignored production inventory and verify that
+the private plugin key path and private Git host are correct. The key is
+consumed by Docker BuildKit via an SSH mount and is never copied into an image
+layer. Do not add it, `.env`, `pretix.cfg`, or TLS files to Git.
 
 Run the database backup and verify it without changing the application:
 
@@ -81,9 +82,10 @@ agent can update the installation without relying on undocumented state.
 
 ### Scope and architecture
 
-The production host is reached through the SSH alias `tickets`. The public
-repository is deployed to `/opt/pretix` by Ansible; `/opt/pretix` is not a Git
-checkout. The Compose project is named `pretix` and uses these containers:
+The production host is reached through the SSH target in the ignored local
+inventory. The public repository is deployed to the configured deployment
+directory; that directory is not a Git checkout. The Compose project is named
+`pretix` and uses these containers:
 
 | Container | Role |
 | --- | --- |
@@ -96,12 +98,11 @@ playbook at runtime. Never replace them with newly named volumes during an
 upgrade. The production-only files are kept on the host and deliberately
 excluded from repository synchronization:
 
-`/opt/pretix/.env`, `/opt/pretix/pretix.cfg`,
-`/opt/pretix/nginx/nginx.conf`, `/opt/pretix/crontab`, TLS files, certificate
-directories, and `/opt/pretix/id_rsa`.
+the deployment directory's `.env`, `pretix.cfg`, `nginx/nginx.conf`,
+`crontab`, TLS files, certificate directories, and private plugin key.
 
 The SSH key is used only through Docker BuildKit's SSH mount to install the
-private `pretix-seating` plugin. It must never be copied into the build
+private seating plugin. It must never be copied into the build
 context, Docker image, Ansible output, or Git.
 
 ### Required local environment
@@ -109,9 +110,16 @@ context, Docker image, Ansible output, or Git.
 Use the Python 3.13 virtual environment prepared for this project:
 
 ```bash
-source /Users/ramil/.venvs/ansible313/bin/activate
+source .venv/bin/activate
 ansible --version
 ```
+
+Create `ansible/inventory/production.ini` locally from
+`ansible/inventory/production.ini.example` and fill in the operator's SSH
+target, deployment directory, private plugin requirement, private Git host,
+private key path, and public host. The real file is ignored by Git. Prefer an
+Ansible vault for sensitive variables; never replace the example values in the
+public file with production values.
 
 Before making changes, verify the repository and SSH target without exposing
 secrets:
@@ -267,7 +275,7 @@ new value inside the image.
 
 Before committing, run `git status --short`, `git diff --check`, and inspect
 the staged file list. Never commit `.env`, `pretix.cfg`, TLS private keys,
-database dumps, `/opt/pretix/id_rsa`, Weblate ZIP archives, or generated
+database dumps, private plugin keys, Weblate ZIP archives, or generated
 production artifacts. Use a descriptive commit and push only after a human
 reviews the staged diff.
 

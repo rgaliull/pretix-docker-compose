@@ -13,9 +13,15 @@ COPY crontab /tmp/crontab
 COPY locale/ /pretix/src/pretix/locale/
 COPY patches/add-slovenian-language.patch /tmp/add-slovenian-language.patch
 
-RUN mkdir -p /root/.ssh /etc/ssh \
-    && ssh-keyscan -t rsa -p 10022 code.rami.io >> /root/.ssh/known_hosts \
-    && printf '%s\n' 'Host code.rami.io' '  Port 10022' '  StrictHostKeyChecking yes' > /root/.ssh/config
+ARG PRIVATE_PLUGIN_REQUIREMENT
+ARG PRIVATE_PLUGIN_GIT_HOST
+ARG PRIVATE_PLUGIN_GIT_PORT=22
+
+RUN test -n "$PRIVATE_PLUGIN_REQUIREMENT" \
+    && test -n "$PRIVATE_PLUGIN_GIT_HOST" \
+    && mkdir -p /root/.ssh /etc/ssh \
+    && ssh-keyscan -t rsa -p "$PRIVATE_PLUGIN_GIT_PORT" "$PRIVATE_PLUGIN_GIT_HOST" >> /root/.ssh/known_hosts \
+    && printf '%s\n' "Host $PRIVATE_PLUGIN_GIT_HOST" "  Port $PRIVATE_PLUGIN_GIT_PORT" '  StrictHostKeyChecking yes' > /root/.ssh/config
 
 
 # Установим остальные компоненты
@@ -26,8 +32,8 @@ RUN mv /image/supervisord/crond.conf /etc/supervisord/crond.conf && \
 
 # The private plugin key is mounted only for this build step and is never copied
 # into an image layer or stored in the repository.
-RUN --mount=type=ssh,id=pretix_seating \
-    DJANGO_SETTINGS_MODULE= pip3 install -U "git+ssh://git@code.rami.io:10022/pretix/pretix-seating.git@stable#egg=pretix-seating"
+RUN --mount=type=ssh,id=private_plugin \
+    DJANGO_SETTINGS_MODULE= pip3 install -U "$PRIVATE_PLUGIN_REQUIREMENT"
 
 # Выполним финальные команды
 RUN chown -R pretixuser:pretixuser /pretix/src/pretix/locale/sl && \
