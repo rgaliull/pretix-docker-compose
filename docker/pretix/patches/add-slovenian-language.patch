@@ -1,0 +1,15 @@
+--- a/pretix/_base_settings.py
++++ b/pretix/_base_settings.py
+@@ -112,4 +112,5 @@ ALL_LANGUAGES = [
+     ('ru', _('Russian')),
+     ('sk', _('Slovak')),
++    ('sl', _('Slovenian')),
+     ('sv', _('Swedish')),
+     ('es', _('Spanish')),
+@@ -130,6 +131,7 @@ LANGUAGES_RTL = {
+ }
+ LANGUAGES_INCUBATING = {
+     'pt-br', 'gl',
++    'sl',
+ }
+ LANGUAGES = ALL_LANGUAGES

@@ -1,0 +1,187 @@
+---
+- name: Backup and deploy Pretix
+  hosts: pretix
+  become: true
+  gather_facts: true
+  vars:
+    deploy_dir: /opt/pretix
+    backup_dir: /var/backups/pretix
+    compose_project: pretix
+    pretix_runtime_version: 5.2.16
+
+  pre_tasks:
+    - name: Read the active Pretix data volume name
+      ansible.builtin.shell: >-
+        docker inspect pretix_app
+        --format '{{ "{{range .Mounts}}{{println .Destination .Name}}{{end}}" }}'
+        | awk '$1 == "/data" {print $2}'
+      register: pretix_volume_result
+      changed_when: false
+      check_mode: false
+      tags: [always]
+
+    - name: Read the active PostgreSQL volume name
+      ansible.builtin.shell: >-
+        docker inspect pretix_db
+        --format '{{ "{{range .Mounts}}{{println .Destination .Name}}{{end}}" }}'
+        | awk '$1 == "/var/lib/postgresql/data" {print $2}'
+      register: postgres_volume_result
+      changed_when: false
+      check_mode: false
+      tags: [always]
+
+    - name: Read the current PostgreSQL credentials from the running container
+      ansible.builtin.shell: >-
+        docker inspect pretix_db --format '{{ "{{range .Config.Env}}{{println .}}{{end}}" }}'
+      register: postgres_env_result
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [always]
+
+    - name: Set deployment facts
+      ansible.builtin.set_fact:
+        pretix_volume: "{{ pretix_volume_result.stdout | trim }}"
+        postgres_volume: "{{ postgres_volume_result.stdout | trim }}"
+        postgres_user: "{{ (postgres_env_result.stdout_lines | select('match', '^POSTGRES_USER=') | first | default('POSTGRES_USER=pretix')).split('=', 1)[1] }}"
+        postgres_password: "{{ (postgres_env_result.stdout_lines | select('match', '^POSTGRES_PASSWORD=') | first).split('=', 1)[1] }}"
+      no_log: true
+      tags: [always]
+
+    - name: Refuse to continue if active resources were not discovered
+      ansible.builtin.assert:
+        that:
+          - pretix_volume | length > 0
+          - postgres_volume | length > 0
+          - postgres_user | length > 0
+          - postgres_password | length > 0
+        fail_msg: "Could not discover the active volumes or database credentials. No deployment was attempted."
+      tags: [always]
+
+  tasks:
+    - name: Create backup directory
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+      tags: [backup]
+
+    - name: Create a compressed PostgreSQL custom-format backup
+      ansible.builtin.shell: >-
+        set -o pipefail &&
+        docker exec -u postgres pretix_db
+        pg_dump -U {{ postgres_user | quote }} -d pretix --format=custom
+        | gzip -c > {{ backup_dir }}/pretix-{{ ansible_facts['date_time']['iso8601_basic_short'] }}.dump.gz
+      args:
+        executable: /bin/bash
+        creates: "{{ backup_dir }}/pretix-{{ ansible_facts['date_time']['iso8601_basic_short'] }}.dump.gz"
+      register: backup_result
+      no_log: true
+      when: not ansible_check_mode
+      tags: [backup]
+
+    - name: Find the newest backup
+      ansible.builtin.find:
+        paths: "{{ backup_dir }}"
+        patterns: 'pretix-*.dump.gz'
+        age_stamp: mtime
+        recurse: false
+      register: backup_files
+      when: not ansible_check_mode
+      tags: [backup]
+
+    - name: Verify the newest backup archive
+      ansible.builtin.shell: >-
+        set -eu &&
+        tmp_file=$(mktemp /tmp/pretix-backup-verify.XXXXXX) &&
+        trap 'rm -f "$tmp_file"' EXIT &&
+        gzip -t {{ (backup_files.files | sort(attribute='mtime', reverse=true) | first).path | quote }} &&
+        gzip -dc {{ (backup_files.files | sort(attribute='mtime', reverse=true) | first).path | quote }} > "$tmp_file" &&
+        docker exec -i pretix_db pg_restore --list < "$tmp_file" >/dev/null
+      args:
+        executable: /bin/bash
+      changed_when: false
+      when: not ansible_check_mode
+      tags: [backup]
+
+    - name: Deploy public repository files, preserving production-only files
+      ansible.posix.synchronize:
+        src: "{{ playbook_dir }}/../"
+        dest: "{{ deploy_dir }}/"
+        delete: false
+        rsync_path: "sudo rsync"
+        rsync_opts:
+          - "--exclude=.git/"
+          - "--exclude=.env"
+          - "--exclude=*.env"
+          - "--exclude=ansible/vars/production.yml"
+          - "--exclude=ansible/vars/production.vault.yml"
+          - "--exclude=docker/pretix/pretix.cfg"
+          - "--exclude=docker/pretix/pretix_key"
+          - "--exclude=docker/pretix/files/config/ssl/domain.crt"
+          - "--exclude=docker/pretix/files/config/ssl/domain.key"
+          - "--exclude=pretix.cfg"
+          - "--exclude=nginx/nginx.conf"
+          - "--exclude=crontab"
+          - "--exclude=certbot/conf/"
+          - "--exclude=certbot/www/"
+      register: sync_result
+
+    - name: Write server-only Compose environment
+      ansible.builtin.copy:
+        dest: "{{ deploy_dir }}/.env"
+        owner: root
+        group: root
+        mode: '0600'
+        content: |
+          POSTGRES_USER={{ postgres_user }}
+          POSTGRES_PASSWORD={{ postgres_password }}
+          POSTGRES_DATA_VOLUME={{ postgres_volume }}
+          PRETIX_DATA_VOLUME={{ pretix_volume }}
+      no_log: true
+
+    - name: Validate the rendered Compose model
+      ansible.builtin.command:
+        cmd: docker compose -p {{ compose_project }} config --quiet
+        chdir: "{{ deploy_dir }}"
+      changed_when: false
+
+    - name: Build the updated Pretix image with the private plugin
+      ansible.builtin.command:
+        cmd: docker compose -p {{ compose_project }} build --pull --ssh pretix_seating={{ deploy_dir }}/id_rsa app
+        chdir: "{{ deploy_dir }}"
+      environment:
+        DOCKER_BUILDKIT: '1'
+
+    - name: Start the updated stack
+      ansible.builtin.command:
+        cmd: docker compose -p {{ compose_project }} up -d --remove-orphans
+        chdir: "{{ deploy_dir }}"
+
+    - name: Wait for the Pretix container to be running
+      ansible.builtin.command:
+        cmd: docker inspect -f '{{"{{.State.Running}}"}}' pretix_app
+      register: app_running
+      until: app_running.stdout | trim == 'true'
+      retries: 24
+      delay: 5
+      changed_when: false
+
+    - name: Verify the deployed Pretix version
+      ansible.builtin.command:
+        cmd: docker exec pretix_app python -m pretix --version
+      register: deployed_version
+      until: deployed_version.stdout is search(pretix_runtime_version)
+      retries: 12
+      delay: 5
+      changed_when: false
+
+    - name: Verify the public HTTPS endpoint
+      ansible.builtin.command:
+        cmd: >-
+          curl --fail --silent --show-error --insecure --retry 12 --retry-delay 5
+          -H 'Host: tickets.upsalacircus.de'
+          https://127.0.0.1/ -o /dev/null
+      changed_when: false

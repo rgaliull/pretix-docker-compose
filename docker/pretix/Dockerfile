@@ -1,4 +1,4 @@
-FROM pretix/standalone:stable
+FROM pretix/standalone:2026.7.0
 
 USER root
 
@@ -7,43 +7,32 @@ ENV IMAGE_CRON_DIR="/image/cron" \
 
 ADD files /image
 COPY crontab /tmp/crontab
+# Slovenian is an incubating Pretix translation and is not included in the
+# standalone image by default. The public PO files are compiled by Pretix's
+# production build below.
+COPY locale/ /pretix/src/pretix/locale/
+COPY patches/add-slovenian-language.patch /tmp/add-slovenian-language.patch
 
-# Копируем SSH-ключ из локального файла
-# COPY id_rsa /root/.ssh/id_rsa
-
-ARG SSH_KEY
-
-# Настраиваем SSH
-#RUN apt-get update -y && apt-get install openssh-client wget gnupg -y
-#RUN wget -qO- https://get.docker.com/gpg | apt-key add
-#RUN eval $(ssh-agent -s)
-
-RUN mkdir -p /root/.ssh 
-# Запишем ключ в файл
-#RUN echo "${SSH_KEY}" > /root/.ssh/id_rsa
-RUN printf  '%s\n' "${SSH_KEY}" > /root/.ssh/id_rsa
-
-RUN chmod 600 /root/.ssh/id_rsa
-RUN chmod -R 0600 /root/.ssh
-RUN mkdir -p /etc/ssh
-RUN ssh-keyscan -t rsa -p 10022 code.rami.io >> /root/.ssh/known_hosts
-RUN echo "StrictHostKeyChecking no" > /root/.ssh/config
+RUN mkdir -p /root/.ssh /etc/ssh \
+    && ssh-keyscan -t rsa -p 10022 code.rami.io >> /root/.ssh/known_hosts \
+    && printf '%s\n' 'Host code.rami.io' '  Port 10022' '  StrictHostKeyChecking yes' > /root/.ssh/config
 
 
 # Установим остальные компоненты
 RUN mv /image/supervisord/crond.conf /etc/supervisord/crond.conf && \
     pip install crontab && \
-    chmod 644 $IMAGE_CONFIG_DIR/ssl/*.crt && \
+    find "$IMAGE_CONFIG_DIR/ssl" -type f -name '*.crt' -exec chmod 644 {} + && \
     chmod +x $IMAGE_CRON_DIR/cron.py
 
-# Установим приватный пакет
-RUN DJANGO_SETTINGS_MODULE= pip3 install -U "git+ssh://git@code.rami.io:10022/pretix/pretix-seating.git@stable#egg=pretix-seating"
+# The private plugin key is mounted only for this build step and is never copied
+# into an image layer or stored in the repository.
+RUN --mount=type=ssh,id=pretix_seating \
+    DJANGO_SETTINGS_MODULE= pip3 install -U "git+ssh://git@code.rami.io:10022/pretix/pretix-seating.git@stable#egg=pretix-seating"
 
 # Выполним финальные команды
-RUN cd /pretix/src && sudo -u pretixuser make production
-
-# Удалим приватный ключ после использования
-RUN rm -f /root/.ssh/id_rsa
+RUN chown -R pretixuser:pretixuser /pretix/src/pretix/locale/sl && \
+    patch -d /pretix/src -p1 < /tmp/add-slovenian-language.patch && \
+    cd /pretix/src && sudo -u pretixuser make production
 
 USER pretixuser
 
@@ -51,4 +40,3 @@ EXPOSE 443
 
 ENTRYPOINT ["pretix"]
 CMD ["all"]
-

@@ -1,0 +1,70 @@
+---
+- name: Enable Slovenian Pretix interface language
+  hosts: pretix
+  become: true
+  gather_facts: false
+  vars:
+    pretix_config: /opt/pretix/pretix.cfg
+
+  tasks:
+    - name: Set English as the default interface language
+      community.general.ini_file:
+        path: "{{ pretix_config }}"
+        section: locale
+        option: default
+        value: en
+        backup: true
+        owner: root
+        group: '15371'
+        mode: '0640'
+
+    - name: Allow the experimental Slovenian translation
+      community.general.ini_file:
+        path: "{{ pretix_config }}"
+        section: languages
+        option: allow_incubating
+        value: sl
+        backup: true
+        owner: root
+        group: '15371'
+        mode: '0640'
+
+    - name: Remove the explicit language allow-list
+      community.general.ini_file:
+        path: "{{ pretix_config }}"
+        section: languages
+        option: enabled
+        state: absent
+        backup: true
+        owner: root
+        group: '15371'
+        mode: '0640'
+
+    - name: Restart Pretix application to reload configuration
+      ansible.builtin.command:
+        cmd: docker restart pretix_app
+
+    - name: Wait for Pretix application
+      ansible.builtin.command:
+        cmd: docker inspect -f '{{ "{{.State.Running}}" }}' pretix_app
+      register: app_running
+      until: app_running.stdout | trim == 'true'
+      retries: 24
+      delay: 5
+      changed_when: false
+
+    - name: Verify English remains the default and Slovenian is available
+      ansible.builtin.command:
+        cmd: docker exec pretix_app sh -c 'PRETIX_CONFIG_FILE=/etc/pretix/pretix.cfg python -c '\''import pretix.settings as s; print("default=", s.LANGUAGE_CODE); print("language_codes=", [x[0] for x in s.LANGUAGES])'\'''
+      register: language_check
+      changed_when: false
+
+    - name: Fail if Slovenian is not present in this image
+      ansible.builtin.assert:
+        that:
+          - "'default= en' in language_check.stdout"
+          - "language_check.stdout is search('sl')"
+        fail_msg: >-
+          Config was updated, but the installed Pretix image does not contain
+          the Slovenian translation package. The package must be added to the
+          image before sl can be shown to users.

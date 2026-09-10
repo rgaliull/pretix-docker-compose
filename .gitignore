@@ -1,1 +1,21 @@
 /.idea/
+
+# Production-only configuration and credentials
+.env
+*.env
+ansible/vars/production.yml
+ansible/vars/production.vault.yml
+docker/pretix/pretix.cfg
+docker/pretix/pretix_key
+docker/pretix/files/config/ssl/domain.crt
+docker/pretix/files/config/ssl/domain.key
+certbot/conf/
+certbot/www/
+
+# Backups and local build artefacts
+*.bak
+*.zip
+*.dump
+*.sql
+*.sql.gz
+__pycache__/
