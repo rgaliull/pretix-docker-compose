@@ -3,6 +3,9 @@
 This repository contains a public Docker Compose and Ansible deployment for
 an operator-managed Pretix instance.
 
+Automation agents should read [`AGENTS.md`](AGENTS.md) first. The detailed
+upgrade and translation runbook is maintained below.
+
 The application image is based on the official Pretix standalone image and
 adds a private seating plugin. Production configuration, database
 credentials, TLS material, and the SSH key for the private plugin are kept on
